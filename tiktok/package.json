@@ -1,0 +1,14 @@
+{
+  "name": "znaesh-li-tiktok-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Мост между TikTok LIVE чата и куиз играта \"Знаеш ли?\"",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "^2.4.3",
+    "ws": "^8.18.0"
+  }
+}

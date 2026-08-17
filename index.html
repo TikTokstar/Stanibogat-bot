@@ -206,15 +206,15 @@ body{
 @keyframes float{50%{transform:translateY(-1.4vmin) rotate(-4deg)}}
 .qmeta{display:flex; align-items:center; gap:1.2vmin; font-size:clamp(8px,1.5vmin,15px); color:var(--dim); letter-spacing:.16em; text-transform:uppercase; font-weight:700}
 .qtext{
-  font-size:clamp(15px,3.5vmin,40px); font-weight:800; line-height:1.24; letter-spacing:-.01em;
+  font-size:clamp(19px,4.9vmin,58px); font-weight:800; line-height:1.2; letter-spacing:-.015em;
   flex:1; display:flex; align-items:center; overflow-y:auto; min-height:0; position:relative; z-index:1;
   text-wrap:balance;
 }
 .fact{
   display:none; gap:1.2vmin; align-items:flex-start; position:relative; z-index:1;
   background:rgba(0,0,0,.24); border:1px solid var(--line); border-left:3px solid var(--gold);
-  border-radius:1vmin; padding:1.4vmin 1.8vmin; font-size:clamp(9px,1.72vmin,17px);
-  color:rgba(244,242,255,.86); line-height:1.42; animation:in .3s both;
+  border-radius:1vmin; padding:1.5vmin 1.9vmin; font-size:clamp(11px,2.15vmin,22px);
+  color:rgba(244,242,255,.9); line-height:1.4; animation:in .3s both;
 }
 .fact.show{display:flex}
 .lifelines{display:flex; gap:1vmin; position:relative; z-index:1; flex-wrap:wrap}
@@ -233,19 +233,65 @@ body{
   padding:2vmin 2.4vmin; border-radius:var(--r); cursor:pointer; font-family:inherit;
   background:var(--glass); border:1px solid var(--line); color:var(--ink);
   backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
-  font-size:clamp(11px,2.15vmin,23px); font-weight:700; line-height:1.28;
+  font-size:clamp(14px,3.15vmin,36px); font-weight:700; line-height:1.24;
   transition:transform .16s cubic-bezier(.2,.9,.3,1), background .18s, border-color .18s, opacity .25s;
   overflow:hidden; min-height:0;
 }
 .ans:hover:not(.locked){background:var(--glass2); transform:translateY(-.5vmin); border-color:rgba(255,255,255,.4)}
 .ans:active:not(.locked){transform:translateY(-.1vmin) scale(.995)}
 .ans .lt{
-  flex:0 0 auto; width:4.6vmin; height:4.6vmin; min-width:26px; min-height:26px;
-  display:grid; place-items:center; border-radius:1vmin;
+  flex:0 0 auto; width:6vmin; height:6vmin; min-width:30px; min-height:30px;
+  display:grid; place-items:center; border-radius:1.2vmin;
   background:rgba(255,255,255,.12); border:1px solid var(--line);
-  font-size:clamp(10px,1.9vmin,19px); font-weight:900;
+  font-size:clamp(12px,2.6vmin,28px); font-weight:900;
 }
-.ans .tx{flex:1; min-width:0; overflow-wrap:anywhere}
+.ans .tx{flex:1; min-width:0; overflow-wrap:anywhere; position:relative; z-index:1}
+.ans .lt{position:relative; z-index:1}
+
+/* ---- TikTok гласове върху отговорите ---- */
+.ans .vfill{
+  position:absolute; left:0; top:0; bottom:0; width:0; z-index:0;
+  background:linear-gradient(90deg, hsl(var(--hue) 85% 60% / .34), hsl(var(--hue) 85% 60% / .14));
+  border-right:2px solid hsl(var(--hue) 90% 70% / .5);
+  transition:width .45s cubic-bezier(.2,.8,.3,1);
+}
+.ans .vc{
+  position:relative; z-index:1; flex:0 0 auto; font-size:clamp(10px,2.2vmin,24px);
+  font-weight:900; font-variant-numeric:tabular-nums; opacity:.9; display:none;
+  padding-left:1vmin; white-space:nowrap;
+}
+body.tt .ans .vc{display:block}
+
+.livechip{
+  display:flex; align-items:center; gap:.8vmin; padding:1vmin 1.8vmin; border-radius:99px;
+  background:rgba(255,40,90,.2); border:1px solid rgba(255,80,120,.5);
+  font-weight:700; font-size:clamp(9px,1.7vmin,17px); white-space:nowrap;
+}
+.livechip .rec{width:1.2vmin; height:1.2vmin; min-width:7px; min-height:7px; border-radius:50%; background:#ff3b5c; animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* ---- TikTok полето на стартовия екран ---- */
+.ttbox{display:flex; flex-direction:column; gap:1vmin}
+.ttrow{display:flex; gap:1vmin}
+.ttrow input{
+  flex:1; min-width:0; font-family:inherit; font-size:clamp(10px,1.8vmin,18px); font-weight:600;
+  padding:1.2vmin 2vmin; border-radius:99px; color:var(--ink);
+  background:rgba(0,0,0,.25); border:1px solid var(--line); outline:none;
+}
+.ttrow input:focus{border-color:var(--gold)}
+.ttrow input::placeholder{color:rgba(244,242,255,.35)}
+.ttrow .btn{padding:1.2vmin 2.4vmin; font-size:clamp(10px,1.8vmin,18px); flex:0 0 auto}
+#ttStatus{text-align:left}
+#ttStatus.ok{color:var(--ok)} #ttStatus.bad{color:var(--bad)}
+
+/* ---- класация на зрителите ---- */
+.viewers ol{list-style:none; margin-top:.8vmin; max-height:22vmin; overflow-y:auto}
+.viewers li{
+  display:flex; align-items:center; gap:1vmin; padding:.5vmin 0;
+  font-size:clamp(10px,1.85vmin,19px); font-weight:700; border-bottom:1px solid rgba(255,255,255,.07);
+}
+.viewers li b{margin-left:auto; color:var(--gold); font-variant-numeric:tabular-nums}
+.viewers li span.pos{opacity:.5; min-width:2.2ch}
 .ans.locked{cursor:default}
 .ans.correct{background:linear-gradient(120deg,rgba(47,208,122,.35),rgba(47,208,122,.15)); border-color:var(--ok); box-shadow:0 0 0 2px rgba(47,208,122,.4), 0 1.6vmin 4vmin rgba(47,208,122,.28)}
 .ans.correct .lt{background:var(--ok); color:#03260f; border-color:transparent}
@@ -377,6 +423,15 @@ body{
         </div>
       </div>
 
+      <div class="ttbox">
+        <h3>TikTok LIVE — гласуване от зрителите</h3>
+        <div class="ttrow">
+          <input id="ttUser" placeholder="@твоето_име_в_tiktok" autocomplete="off" spellcheck="false">
+          <button class="btn ghost" id="ttBtn">Свържи</button>
+        </div>
+        <div class="hint" id="ttStatus">Незадължително. Играта работи и без TikTok.</div>
+      </div>
+
       <button class="btn" id="startBtn" style="width:100%">▶ Започни играта</button>
       <div class="hint">Клавиши: 1–4 отговор · Enter напред · Esc меню · F цял екран · M звук</div>
     </div>
@@ -386,6 +441,7 @@ body{
   <section id="screen-game" class="screen">
     <div class="hud">
       <button class="ll quit" id="quitBtn" title="Към менюто (Esc)">☰</button>
+      <div class="livechip" id="liveChip" style="display:none"><i class="rec"></i><span id="liveTxt">LIVE</span></div>
       <div class="catchip"><span id="catIcon">✨</span><span id="catName">Категория</span></div>
       <div class="dots" id="dots"></div>
       <div class="spacer"></div>
@@ -436,6 +492,10 @@ body{
       </div>
       <div class="st" style="background:rgba(0,0,0,.14)">
         <span>Най-силна категория</span><b id="stTopCat" style="font-size:clamp(13px,2.6vmin,26px)">—</b>
+      </div>
+      <div class="st viewers" id="viewersCard" style="display:none;background:rgba(0,0,0,.14)">
+        <span>🏆 Топ зрители в TikTok</span>
+        <ol id="viewersList"></ol>
       </div>
       <div class="endbtns">
         <button class="btn" id="againBtn">↻ Още веднъж</button>
@@ -543,6 +603,154 @@ function segs(id, key){
   };
 }
 
+/* ==================== TIKTOK LIVE ====================
+   Работи само ако е пуснат мостът от папка tiktok/ (npm start).
+   Без него всичко останало си върви нормално.
+   ==================================================== */
+const TT = {
+  ws:null, live:false, user:"", viewers:0,
+  votes:[0,0,0,0],          // гласове за А, Б, В, Г за текущия въпрос
+  voters:new Map(),          // userId -> избран индекс (брои се само първият глас)
+  board:new Map(),           // userId -> {nick, pts}
+  retry:null, paint:null
+};
+const TT_URL = "ws://localhost:8787";
+
+// „2“, „б“, „B“, „отговор 3“ → индекс 0–3
+const VOTE_MAP = {"1":0,"2":1,"3":2,"4":3,
+                  "а":0,"б":1,"в":2,"г":3,
+                  "a":0,"b":1,"c":2,"d":3};
+function parseVote(text){
+  const m = String(text).trim().toLowerCase().match(/^[^\p{L}\p{N}]*([1-4]|[абвгabcd])(?![\p{L}\p{N}])/u);
+  return m ? VOTE_MAP[m[1]] : null;
+}
+
+function ttSet(msg, cls){
+  const el = $("#ttStatus");
+  el.textContent = msg;
+  el.className = "hint" + (cls ? " " + cls : "");
+}
+
+function ttConnect(){
+  const name = $("#ttUser").value.trim();
+  if(!name){ ttSet("Въведи потребителско име в TikTok.", "bad"); return; }
+  clearTimeout(TT.retry);
+
+  try{ if(TT.ws) TT.ws.close(); }catch(e){}
+  ttSet("Свързване с моста…");
+
+  let ws;
+  try{ ws = new WebSocket(TT_URL); }
+  catch(e){ ttSet("Мостът не е пуснат. Виж папка tiktok/ и пусни start.bat.", "bad"); return; }
+  TT.ws = ws;
+
+  ws.onopen = ()=>{
+    ttSet("Мостът отговори. Търся стрийма…");
+    ws.send(JSON.stringify({type:"connect", username:name}));
+  };
+
+  ws.onmessage = ev=>{
+    let m; try{ m = JSON.parse(ev.data); }catch{ return; }
+
+    if(m.type==="status"){
+      TT.live = !!m.connected;
+      TT.user = m.user || "";
+      TT.viewers = m.viewers || 0;
+      document.body.classList.toggle("tt", TT.live);
+      $("#ttBtn").textContent = TT.live ? "Прекъсни" : "Свържи";
+      if(TT.live) ttSet(`Свързан с @${TT.user} — зрителите могат да гласуват с 1–4.`, "ok");
+      else if(TT.ws) ttSet("Мостът работи, но няма активен стрийм.");
+      paintLive();
+    }
+    if(m.type==="chat")  onVote(m);
+    if(m.type==="info")  ttSet(m.message);
+    if(m.type==="error") ttSet(m.message, "bad");
+  };
+
+  ws.onerror = ()=> ttSet("Мостът не отговаря. Пусни start.bat (или npm start в tiktok/).", "bad");
+
+  ws.onclose = ()=>{
+    TT.ws = null; TT.live = false;
+    document.body.classList.remove("tt");
+    $("#ttBtn").textContent = "Свържи";
+    paintLive();
+  };
+}
+
+function ttDisconnect(){
+  clearTimeout(TT.retry);
+  try{ TT.ws && TT.ws.send(JSON.stringify({type:"disconnect"})); }catch(e){}
+  try{ TT.ws && TT.ws.close(); }catch(e){}
+  TT.ws = null; TT.live = false;
+  document.body.classList.remove("tt");
+  $("#ttBtn").textContent = "Свържи";
+  ttSet("Изключено. Играта работи и без TikTok.");
+  paintLive();
+}
+
+function onVote(m){
+  if(!TT.live || !S || S.answered) return;         // след разкриване гласовете не се броят
+  const idx = parseVote(m.text);
+  if(idx===null) return;
+  if(TT.voters.has(m.userId)) return;              // един глас на човек за въпрос
+  TT.voters.set(m.userId, idx);
+  TT.votes[idx]++;
+  if(!TT.board.has(m.userId)) TT.board.set(m.userId, {nick:m.nick, pts:0});
+  else TT.board.get(m.userId).nick = m.nick;
+  // рисуваме най-много веднъж на кадър, дори при бърз чат
+  if(!TT.paint) TT.paint = requestAnimationFrame(()=>{ TT.paint=null; paintVotes(); });
+}
+
+function resetVotes(){
+  TT.votes = [0,0,0,0];
+  TT.voters.clear();
+  paintVotes();
+}
+
+function paintVotes(){
+  const total = TT.votes.reduce((a,b)=>a+b,0);
+  $$(".ans").forEach((a,i)=>{
+    const n = TT.votes[i]||0;
+    const pct = total ? (n/total)*100 : 0;
+    const fill = a.querySelector(".vfill");
+    const cnt  = a.querySelector(".vc");
+    if(fill) fill.style.width = (TT.live ? pct : 0) + "%";
+    if(cnt)  cnt.textContent = total ? `${n} · ${Math.round(pct)}%` : "0";
+  });
+  paintLive();
+}
+
+function paintLive(){
+  const chip = $("#liveChip");
+  if(!TT.live){ chip.style.display = "none"; return; }
+  chip.style.display = "flex";
+  const total = TT.votes.reduce((a,b)=>a+b,0);
+  $("#liveTxt").textContent = `@${TT.user} · 👁 ${TT.viewers} · 🗳 ${total}`;
+}
+
+// зрителите, познали верния отговор, получават точка
+function awardViewers(correctIdx){
+  if(!TT.live) return;
+  for(const [id, idx] of TT.voters){
+    if(idx===correctIdx && TT.board.has(id)) TT.board.get(id).pts++;
+  }
+}
+
+function paintBoard(){
+  const card = $("#viewersCard");
+  const top = [...TT.board.values()].filter(v=>v.pts>0).sort((a,b)=>b.pts-a.pts).slice(0,5);
+  if(!top.length){ card.style.display = "none"; return; }
+  card.style.display = "block";
+  const medals = ["🥇","🥈","🥉","4.","5."];
+  $("#viewersList").innerHTML = top.map((v,i)=>
+    `<li><span class="pos">${medals[i]}</span><span>${esc(v.nick)}</span><b>${v.pts}</b></li>`
+  ).join("");
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+$("#ttBtn").onclick = ()=>{ sfx.click(); TT.live || TT.ws ? ttDisconnect() : ttConnect(); };
+$("#ttUser").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.stopPropagation(); ttConnect(); } });
+
 /* ==================== ЕКРАНИ ==================== */
 function show(id){
   $$(".screen").forEach(s=>s.classList.remove("show"));
@@ -602,11 +810,13 @@ function render(){
   mixed.forEach((o,i)=>{
     const b = document.createElement("button");
     b.className = "ans";
-    b.innerHTML = `<span class="lt">${LETTERS[i]}</span><span class="tx">${o.t}</span>`;
+    b.innerHTML = `<span class="vfill"></span><span class="lt">${LETTERS[i]}</span>` +
+                  `<span class="tx">${esc(o.t)}</span><span class="vc">0</span>`;
     b.onclick = ()=> answer(b, o.ok);
     b.dataset.ok = o.ok ? "1":"0";
     box.appendChild(b);
   });
+  resetVotes();
 
   $("#ll50").disabled = !!S.used.f50;
   $("#llTime").disabled = !!S.used.time || cfg.time===0;   // безсмислен без таймер
@@ -661,12 +871,14 @@ function reveal(btn, ok){
   S.perCat[q.c] = S.perCat[q.c] || {c:0,t:0};
   S.perCat[q.c].t++;
 
-  $$(".ans").forEach(a=>{
+  const answers = $$(".ans");
+  answers.forEach(a=>{
     a.classList.add("locked");
     if(a.dataset.ok==="1") a.classList.add("correct");
     else if(a===btn) a.classList.add("wrong");
     else a.classList.add("faded");
   });
+  awardViewers(answers.findIndex(a=>a.dataset.ok==="1"));
 
   if(ok){
     // бонусът е дял от оставащото време, за да са сравними резултатите при 30/45/60 сек
@@ -694,10 +906,28 @@ function reveal(btn, ok){
   if(q.f){ $("#factText").textContent = q.f; $("#fact").classList.add("show"); }
   $("#nextbar").style.display = "flex";
   $("#nextBtn").textContent = (S.i >= S.pool.length-1) ? "Виж резултата →" : "Напред →";
+  autoNext();
+}
+
+/* при LIVE стрийм играта върви сама — домакинът не бива да кликка всеки път */
+let autoTimer = null;
+function autoNext(){
+  clearInterval(autoTimer);
+  if(!TT.live) return;
+  const label = (S.i >= S.pool.length-1) ? "Резултат" : "Напред";
+  let left = 8;
+  const tick = ()=>{
+    $("#nextBtn").textContent = `${label} → (${left})`;
+    if(left<=0){ clearInterval(autoTimer); next(); return; }
+    left--;
+  };
+  tick();
+  autoTimer = setInterval(tick, 1000);
 }
 
 function next(){
   if(!S.answered) return;
+  clearInterval(autoTimer);
   if(S.i >= S.pool.length-1){ finish(); return; }
   S.i++;
   render();
@@ -730,6 +960,7 @@ $("#llSkip").onclick = ()=>{
 /* ==================== КРАЙ ==================== */
 function finish(){
   clearInterval(timer);
+  clearInterval(autoTimer);
   const total = S.pool.length;
   const acc = Math.round(S.correct/total*100);
   const best = getBest();
@@ -766,6 +997,7 @@ function finish(){
   $("#stTopCat").textContent = topCat;
   $("#bestScore").textContent = getBest();
 
+  paintBoard();
   setHue("Изкуство");
   show("#screen-end");
   sfx.end();
@@ -809,6 +1041,7 @@ $("#nextBtn").onclick = ()=>{ sfx.click(); next(); };
 $("#againBtn").onclick = ()=>{ sfx.click(); startGame(); };
 function toMenu(){
   clearInterval(timer);
+  clearInterval(autoTimer);
   sfx.click();
   updateCounts();
   $("#bestScore").textContent = getBest();
@@ -835,6 +1068,8 @@ function toggleFS(){
 }
 
 addEventListener("keydown", e=>{
+  // докато се пише в текстово поле, клавишните команди не важат
+  if(e.target && e.target.tagName === "INPUT") return;
   const k = e.key.toLowerCase();
   if(k==="f"){ toggleFS(); return; }
   if(k==="m"){ $("#soundBtn").click(); return; }
