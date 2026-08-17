@@ -619,7 +619,12 @@ const TT = {
   board:new Map(),           // userId -> {nick, pts}
   retry:null, paint:null
 };
-const TT_URL = "ws://localhost:8787";
+// Пусната през START.bat, играта се раздава от същия сървър, който чете
+// TikTok чата — тогава ползваме неговия адрес. Ако файлът е отворен направо
+// с двойно кликване, пробваме стандартния локален адрес.
+const TT_URL = location.protocol.startsWith("http")
+  ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`
+  : "ws://localhost:8080";
 
 // „2“, „б“, „B“, „отговор 3“ → индекс 0–3
 const VOTE_MAP = {"1":0,"2":1,"3":2,"4":3,
@@ -642,15 +647,15 @@ function ttConnect(){
   clearTimeout(TT.retry);
 
   try{ if(TT.ws) TT.ws.close(); }catch(e){}
-  ttSet("Свързване с моста…");
+  ttSet("Свързване със сървъра…");
 
   let ws;
   try{ ws = new WebSocket(TT_URL); }
-  catch(e){ ttSet("Мостът не е пуснат. Виж папка tiktok/ и пусни start.bat.", "bad"); return; }
+  catch(e){ ttSet("Сървърът не е пуснат. Затвори това и пусни START.bat.", "bad"); return; }
   TT.ws = ws;
 
   ws.onopen = ()=>{
-    ttSet("Мостът отговори. Търся стрийма…");
+    ttSet("Сървърът отговори. Търся стрийма…");
     ws.send(JSON.stringify({type:"connect", username:name}));
   };
 
@@ -664,7 +669,7 @@ function ttConnect(){
       document.body.classList.toggle("tt", TT.live);
       $("#ttBtn").textContent = TT.live ? "Прекъсни" : "Свържи";
       if(TT.live) ttSet(`Свързан с @${TT.user} — зрителите могат да гласуват с 1–4.`, "ok");
-      else if(TT.ws) ttSet("Мостът работи, но няма активен стрийм.");
+      else if(TT.ws) ttSet("Сървърът работи, но няма активен стрийм.");
       paintLive();
     }
     if(m.type==="chat")  onVote(m);
@@ -672,7 +677,7 @@ function ttConnect(){
     if(m.type==="error") ttSet(m.message, "bad");
   };
 
-  ws.onerror = ()=> ttSet("Мостът не отговаря. Пусни start.bat (или npm start в tiktok/).", "bad");
+  ws.onerror = ()=> ttSet("Сървърът не отговаря. Пусни START.bat и отвори играта от http://localhost:8080", "bad");
 
   ws.onclose = ()=>{
     TT.ws = null; TT.live = false;
