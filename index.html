@@ -405,12 +405,13 @@ body.rotok #rotate{display:none !important}   /* „Продължи все па
 
       <div class="rowopts">
         <div>
-          <h3>Брой въпроси</h3>
+          <h3>Брой въпроси <span id="countNote"></span></h3>
           <div class="seg" id="segCount">
             <button data-v="10">10</button>
             <button data-v="20" class="on">20</button>
             <button data-v="30">30</button>
             <button data-v="50">50</button>
+            <button data-v="0" title="Върти въпроси, докато не спреш">∞</button>
           </div>
         </div>
         <div>
@@ -434,14 +435,14 @@ body.rotok #rotate{display:none !important}   /* „Продължи все па
       </div>
 
       <button class="btn" id="startBtn" style="width:100%">▶ Започни играта</button>
-      <div class="hint">Клавиши: 1–4 отговор · Enter напред · Esc меню · F цял екран · M звук</div>
+      <div class="hint">Клавиши: 1–4 отговор · Enter напред · Esc приключи · F цял екран · M звук</div>
     </div>
   </section>
 
   <!-- ================= ИГРА ================= -->
   <section id="screen-game" class="screen">
     <div class="hud">
-      <button class="ll quit" id="quitBtn" title="Към менюто (Esc)">☰</button>
+      <button class="ll quit" id="quitBtn" title="Приключи играта и виж резултата (Esc)">☰</button>
       <div class="livechip" id="liveChip" style="display:none"><i class="rec"></i><span id="liveTxt">LIVE</span></div>
       <div class="catchip"><span id="catIcon">✨</span><span id="catName">Категория</span></div>
       <div class="dots" id="dots"></div>
@@ -594,6 +595,7 @@ function poolFor(){
 function updateCounts(){
   $("#qCount").textContent = poolFor().length;
   $("#cCount").textContent = cfg.cats.size || allCats.length;
+  $("#countNote").textContent = cfg.count===0 ? "— върти без спиране" : "";
 }
 function segs(id, key){
   $(id).onclick = e=>{
@@ -602,6 +604,7 @@ function segs(id, key){
     [...b.parentNode.children].forEach(x=>x.classList.remove("on"));
     b.classList.add("on");
     cfg[key] = +b.dataset.v;
+    updateCounts();
   };
 }
 
@@ -767,25 +770,46 @@ function setHue(cat){
 let timer=null;
 
 function startGame(){
-  const pool = shuffle(poolFor()).slice(0, Math.min(cfg.count, poolFor().length));
-  S = { pool, i:0, score:0, streak:0, best:0, correct:0, answered:false,
-        left:cfg.time, used:{}, perCat:{} };
-  buildDots();
+  const inf = cfg.count === 0;                 // безкраен режим — за цял стрийм
+  const all = poolFor();
+  S = { inf, pool: inf ? [] : shuffle(all).slice(0, Math.min(cfg.count, all.length)),
+        i:0, score:0, streak:0, best:0, correct:0, asked:0, marks:[],
+        answered:false, left:cfg.time, used:{}, perCat:{} };
+  if(inf) ensureQuestion(0);
   show("#screen-game");
   render();
 }
 
-function buildDots(){
-  const d = $("#dots");
-  d.innerHTML = S.pool.map(()=>`<i class="dot"></i>`).join("");
+/* Безкрайният режим дозарежда нови разбъркани въпроси, когато свършат.
+   При изчерпване на цялата база започва отначало, без да повтаря
+   последния въпрос веднага след себе си. */
+function ensureQuestion(i){
+  while(S.pool.length <= i){
+    const batch = shuffle(poolFor());
+    const last = S.pool[S.pool.length-1];
+    if(last && batch.length > 1 && batch[0] === last) [batch[0], batch[1]] = [batch[1], batch[0]];
+    S.pool.push(...batch);
+  }
 }
+
+// в безкрайния режим показваме плъзгащ прозорец от последните 20 въпроса
+const DOT_WINDOW = 20;
 function paintDots(){
-  $$("#dots .dot").forEach((el,i)=>{
-    el.classList.toggle("now", i===S.i);
-  });
+  const from = S.inf ? Math.max(0, S.i - (DOT_WINDOW-1)) : 0;
+  const to   = S.inf ? S.i : S.pool.length - 1;
+  let html = "";
+  for(let i=from; i<=to; i++){
+    html += `<i class="dot ${S.marks[i]||""}${i===S.i?" now":""}"></i>`;
+  }
+  $("#dots").innerHTML = html;
+}
+function markDot(cls){
+  S.marks[S.i] = cls;
+  paintDots();
 }
 
 function render(){
+  if(S.inf) ensureQuestion(S.i);
   const q = S.pool[S.i];
   S.answered = false;
   S.left = cfg.time;
@@ -797,7 +821,7 @@ function render(){
   $("#catName").textContent = q.c;
   $("#qCatLbl").textContent = q.c;
   $("#qIndexLbl").textContent = "Въпрос " + (S.i+1);
-  $("#progress").textContent = (S.i+1) + "/" + S.pool.length;
+  $("#progress").textContent = S.inf ? String(S.i+1) : (S.i+1) + "/" + S.pool.length;
   $("#qText").textContent = q.q;
   $("#fact").classList.remove("show");
   $("#nextbar").style.display = "none";
@@ -872,6 +896,7 @@ function reveal(btn, ok){
   const q = S.pool[S.i];
   S.perCat[q.c] = S.perCat[q.c] || {c:0,t:0};
   S.perCat[q.c].t++;
+  S.asked++;
 
   const answers = $$(".ans");
   answers.forEach(a=>{
@@ -894,29 +919,30 @@ function reveal(btn, ok){
     $("#streak").textContent = S.streak + "×";
     $("#verdict").textContent = `✔ Вярно  +${gain}`;
     $("#verdict").className = "ok";
-    $$("#dots .dot")[S.i].classList.add("g");
+    markDot("g");
     sfx.right();
     burst(btn);
   }else{
     S.streak = 0;
     $("#streak").textContent = "0×";
     if(btn){ $("#verdict").textContent="✘ Грешен отговор"; $("#verdict").className="bad"; }
-    $$("#dots .dot")[S.i].classList.add("r");
+    markDot("r");
     sfx.wrong();
   }
 
   if(q.f){ $("#factText").textContent = q.f; $("#fact").classList.add("show"); }
   $("#nextbar").style.display = "flex";
-  $("#nextBtn").textContent = (S.i >= S.pool.length-1) ? "Виж резултата →" : "Напред →";
+  $("#nextBtn").textContent = (!S.inf && S.i >= S.pool.length-1) ? "Виж резултата →" : "Напред →";
   autoNext();
 }
 
-/* при LIVE стрийм играта върви сама — домакинът не бива да кликка всеки път */
+/* Играта върви сама при LIVE стрийм и в безкрайния режим —
+   домакинът не бива да кликка при всеки въпрос. */
 let autoTimer = null;
 function autoNext(){
   clearInterval(autoTimer);
-  if(!TT.live) return;
-  const label = (S.i >= S.pool.length-1) ? "Резултат" : "Напред";
+  if(!TT.live && !S.inf) return;
+  const label = (!S.inf && S.i >= S.pool.length-1) ? "Резултат" : "Напред";
   let left = 8;
   const tick = ()=>{
     $("#nextBtn").textContent = `${label} → (${left})`;
@@ -930,7 +956,7 @@ function autoNext(){
 function next(){
   if(!S.answered) return;
   clearInterval(autoTimer);
-  if(S.i >= S.pool.length-1){ finish(); return; }
+  if(!S.inf && S.i >= S.pool.length-1){ finish(); return; }
   S.i++;
   render();
 }
@@ -955,15 +981,22 @@ $("#llSkip").onclick = ()=>{
   $$(".ans").forEach(a=>{ a.classList.add("locked"); if(a.dataset.ok==="1") a.classList.add("correct"); else a.classList.add("faded"); });
   $("#verdict").textContent="⏭️ Пропуснат"; $("#verdict").className="";
   const q=S.pool[S.i];
+  S.perCat[q.c] = S.perCat[q.c] || {c:0,t:0};
+  S.perCat[q.c].t++;
+  S.asked++;
+  S.streak = 0;
+  $("#streak").textContent = "0×";
   if(q.f){ $("#factText").textContent=q.f; $("#fact").classList.add("show"); }
   $("#nextbar").style.display="flex";
+  $("#nextBtn").textContent = (!S.inf && S.i >= S.pool.length-1) ? "Виж резултата →" : "Напред →";
+  autoNext();
 };
 
 /* ==================== КРАЙ ==================== */
 function finish(){
   clearInterval(timer);
   clearInterval(autoTimer);
-  const total = S.pool.length;
+  const total = S.asked || 1;
   const acc = Math.round(S.correct/total*100);
   const best = getBest();
   const isRecord = S.score > best;
@@ -1051,7 +1084,18 @@ function toMenu(){
   show("#screen-start");
 }
 $("#menuBtn").onclick = toMenu;
-$("#quitBtn").onclick = toMenu;
+
+/* ☰ / Esc приключва играта и показва резултата — иначе в безкрайния
+   режим до финалния екран никога не се стига. Ако още няма отговорен
+   въпрос, няма какво да се показва и се връщаме в менюто. */
+function endGame(){
+  if(S && S.asked > 0){
+    clearInterval(timer); clearInterval(autoTimer);
+    sfx.click();
+    finish();
+  }else toMenu();
+}
+$("#quitBtn").onclick = endGame;
 
 $("#rotBtn").onclick = ()=>{ sfx.click(); document.body.classList.add("rotok"); };
 
@@ -1078,7 +1122,7 @@ addEventListener("keydown", e=>{
   if(k==="f"){ toggleFS(); return; }
   if(k==="m"){ $("#soundBtn").click(); return; }
   if($("#screen-game").classList.contains("show")){
-    if(k==="escape"){ toMenu(); return; }
+    if(k==="escape"){ endGame(); return; }
     if(["1","2","3","4"].includes(k)){
       const a = $$(".ans")[+k-1];
       if(a && !S.answered && !a.classList.contains("gone")) a.click();
