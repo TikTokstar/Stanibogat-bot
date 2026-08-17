@@ -56,6 +56,9 @@ let conn = null;
 let currentUser = "";
 let viewers = 0;
 let wanted = "";          // към кого искаме да сме свързани
+const USER_FILE = path.join(__dirname, '.last-user');
+const readUser  = () => { try{ return fs.readFileSync(USER_FILE,'utf8').trim(); }catch{ return ""; } };
+const saveUser  = u => { try{ fs.writeFileSync(USER_FILE, u); }catch{} };
 let retryTimer = null;    // чакане стриймът да тръгне
 const RETRY_SEC = 15;
 
@@ -103,6 +106,7 @@ async function connectTikTok(rawName, isRetry = false){
 
   await disconnectTikTok();
   wanted = username;
+  if(!isRetry) saveUser(username);
   broadcast({ type:"info", message:`Свързване към @${username}…` });
   console.log(`\n→ Свързване към @${username} …`);
 
@@ -139,14 +143,20 @@ async function connectTikTok(rawName, isRetry = false){
     broadcast(status());
   }catch(err){
     const msg = err?.message || String(err);
-    const offline = /offline|isn't online|not online|not found/i.test(msg);
+    const offline = /offline|isn't online|not online|not found|room id/i.test(msg);
 
-    // Стриймът често се пуска след играта. Няма смисъл човек да цъка пак —
-    // чакаме сами, докато тръгне, и спираме само ако бъде прекъснато.
-    if(offline && wanted === username){
-      if(!isRetry) console.log(`  @${username} още не е на живо. Чакам и пробвам всеки ${RETRY_SEC} сек…`);
-      broadcast({ type:"info",
-        message:`@${username} още не е на живо — чакам да пуснеш LIVE. Проверявам всеки ${RETRY_SEC} сек.` });
+    // Стриймът често се пуска след играта, а и мрежата понякога капризничи.
+    // Затова не се отказваме след един опит — чакаме и пробваме пак, докато
+    // не бъде изрично прекъснато или пренасочено към друго име.
+    if(wanted === username){
+      if(!isRetry){
+        console.log(offline
+          ? `  @${username} още не е на живо. Чакам и пробвам всеки ${RETRY_SEC} сек…`
+          : `  Връзката не стана (${msg}). Пробвам пак всеки ${RETRY_SEC} сек…`);
+      }
+      broadcast({ type:"info", message: offline
+        ? `@${username} още не е на живо — чакам да пуснеш LIVE. Проверявам всеки ${RETRY_SEC} сек.`
+        : `Опитвам да се свържа с @${username}… (проверявам всеки ${RETRY_SEC} сек)` });
       clearTimeout(retryTimer);
       retryTimer = setTimeout(() => connectTikTok(username, true), RETRY_SEC * 1000);
       return;
@@ -254,7 +264,8 @@ httpServer.on("error", err => {
 
 httpServer.listen(port, () => {
   const ip = localIP();
-  const PORT = port;   // реално ползваният порт
+  const PORT = port;              // реално ползваният порт
+  const savedUser = readUser();   // името от миналия път
   console.log(`
 ╔══════════════════════════════════════════════════════╗
 ║              ЗНАЕШ ЛИ?  —  сървърът работи           ║
@@ -268,23 +279,26 @@ httpServer.listen(port, () => {
 
   За обикновен браузър:  http://localhost:${PORT}
 ${ip ? `  От телефон в същата мрежа:  http://${ip}:${PORT}\n` : ""}
-  1. Отвори адреса
+  ${savedUser ? `Свързва се сам към @${savedUser}. Зрителите гласуват в чата
+  с 1, 2, 3, 4 (или А, Б, В, Г).`
+  : `1. Отвори адреса
   2. Напиши името си в полето "TikTok LIVE" и натисни "Свържи"
-  3. Зрителите гласуват в чата с 1, 2, 3, 4 (или А, Б, В, Г)
+  3. Зрителите гласуват в чата с 1, 2, 3, 4 (или А, Б, В, Г)`}
 
-  Да тръгва сама в TikTok Studio, без да цъкаш нищо вътре —
-  добави настройките в края на адреса:
+  ${savedUser ? `ГОТОВИЯТ ТИ ЛИНК — играта тръгва сама и се закача за чата:
 
-      http://127.0.0.1:${PORT}/index.html?tiktok=ТВОЕТО_ИМЕ&start=1&count=0
+      http://127.0.0.1:${PORT}/index.html?tiktok=${savedUser}&start=1&count=0`
+    : `След първото свързване тук ще излиза готов линк с твоето име.`}
 
   ВАЖНО: този прозорец трябва да остане отворен.
   Спиране: Ctrl + C
 `);
   if(process.env.TUNNEL === "1") startTunnel();
-});
 
-// име от командния ред: START.bat @име
-const fromArgs = process.argv.slice(2).find(a => !a.startsWith("-"));
-if(fromArgs || process.env.TIKTOK_USER) connectTikTok(fromArgs || process.env.TIKTOK_USER);
+  // щом знаем към кого, няма смисъл да чакаме да се цъка "Свържи"
+  const auto = process.argv.slice(2).find(a => !a.startsWith("-")) ||
+               process.env.TIKTOK_USER || savedUser;
+  if(auto) connectTikTok(auto);
+});
 
 process.on("SIGINT", () => { disconnectTikTok(); process.exit(0); });
