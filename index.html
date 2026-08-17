@@ -144,6 +144,7 @@ body{
 .seg button{
   flex:1; border:0; background:transparent; color:var(--dim); font-family:inherit; font-weight:700;
   padding:1vmin .6vmin; border-radius:99px; cursor:pointer; font-size:clamp(9px,1.62vmin,16px); transition:.18s;
+  white-space:nowrap;
 }
 .seg button.on{background:rgba(255,255,255,.16); color:#fff; box-shadow:0 .4vmin 1.4vmin rgba(0,0,0,.25)}
 
@@ -224,6 +225,7 @@ body{
 }
 .ll:hover:not(:disabled){background:rgba(255,255,255,.15); color:#fff}
 .ll:disabled{opacity:.3; cursor:not-allowed}
+.ll.quit{padding:1vmin 1.7vmin; font-size:clamp(11px,2vmin,19px); line-height:1; flex:0 0 auto}
 
 .answers{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:1.8vmin; min-height:0}
 .ans{
@@ -365,23 +367,25 @@ body{
           </div>
         </div>
         <div>
-          <h3>Темпо</h3>
+          <h3>Време за отговор</h3>
           <div class="seg" id="segTime">
-            <button data-v="30">Спокойно</button>
-            <button data-v="20" class="on">Нормално</button>
-            <button data-v="10">Светкавично</button>
+            <button data-v="30">30 сек</button>
+            <button data-v="45" class="on">45 сек</button>
+            <button data-v="60">60 сек</button>
+            <button data-v="0">Без лимит</button>
           </div>
         </div>
       </div>
 
       <button class="btn" id="startBtn" style="width:100%">▶ Започни играта</button>
-      <div class="hint">Клавиши: 1–4 отговор · Enter напред · F цял екран · M звук</div>
+      <div class="hint">Клавиши: 1–4 отговор · Enter напред · Esc меню · F цял екран · M звук</div>
     </div>
   </section>
 
   <!-- ================= ИГРА ================= -->
   <section id="screen-game" class="screen">
     <div class="hud">
+      <button class="ll quit" id="quitBtn" title="Към менюто (Esc)">☰</button>
       <div class="catchip"><span id="catIcon">✨</span><span id="catName">Категория</span></div>
       <div class="dots" id="dots"></div>
       <div class="spacer"></div>
@@ -402,7 +406,7 @@ body{
         <div class="fact" id="fact"><span>💡</span><span id="factText"></span></div>
         <div class="lifelines" id="lifelines">
           <button class="ll" id="ll50">✂️ 50 : 50</button>
-          <button class="ll" id="llTime">⏱️ +10 сек</button>
+          <button class="ll" id="llTime">⏱️ +20 сек</button>
           <button class="ll" id="llSkip">⏭️ Пропусни</button>
         </div>
         <div class="nextbar" id="nextbar" style="display:none">
@@ -483,7 +487,7 @@ const sfx = {
 };
 
 /* ==================== СЪСТОЯНИЕ ==================== */
-const cfg = { cats:new Set(), count:20, time:20 };
+const cfg = { cats:new Set(), count:20, time:45 };   // time:0 == без ограничение
 let S = null;
 const BEST_KEY = "znaeshli_best_v1";
 const getBest = ()=> +(localStorage.getItem(BEST_KEY)||0);
@@ -605,7 +609,7 @@ function render(){
   });
 
   $("#ll50").disabled = !!S.used.f50;
-  $("#llTime").disabled = !!S.used.time;
+  $("#llTime").disabled = !!S.used.time || cfg.time===0;   // безсмислен без таймер
   $("#llSkip").disabled = !!S.used.skip;
 
   runTimer();
@@ -613,6 +617,15 @@ function render(){
 
 function runTimer(){
   clearInterval(timer);
+
+  // режим без ограничение във времето
+  if(cfg.time===0){
+    $("#tnum").textContent = "∞";
+    $("#tfill").style.width = "100%";
+    $("#timerWrap").classList.remove("low");
+    return;
+  }
+
   const total = cfg.time;
   const upd = ()=>{
     $("#tnum").textContent = Math.ceil(S.left);
@@ -656,7 +669,8 @@ function reveal(btn, ok){
   });
 
   if(ok){
-    const timeBonus = Math.round(S.left*10);
+    // бонусът е дял от оставащото време, за да са сравними резултатите при 30/45/60 сек
+    const timeBonus = cfg.time ? Math.round((S.left/cfg.time)*150) : 0;
     const streakBonus = Math.min(S.streak,5)*25;
     const gain = 100 + timeBonus + streakBonus;
     S.score += gain; S.correct++; S.streak++;
@@ -697,9 +711,9 @@ $("#ll50").onclick = ()=>{
   shuffle(wrong).slice(0,2).forEach(a=>a.classList.add("gone"));
 };
 $("#llTime").onclick = ()=>{
-  if(S.answered || S.used.time) return;
+  if(S.answered || S.used.time || cfg.time===0) return;
   S.used.time = true; $("#llTime").disabled = true; sfx.click();
-  S.left += 10;
+  S.left += 20;
 };
 $("#llSkip").onclick = ()=>{
   if(S.answered || S.used.skip) return;
@@ -793,7 +807,16 @@ function rain(){
 $("#startBtn").onclick = ()=>{ sfx.click(); startGame(); };
 $("#nextBtn").onclick = ()=>{ sfx.click(); next(); };
 $("#againBtn").onclick = ()=>{ sfx.click(); startGame(); };
-$("#menuBtn").onclick = ()=>{ sfx.click(); updateCounts(); $("#bestScore").textContent=getBest(); setHue("Космос"); show("#screen-start"); };
+function toMenu(){
+  clearInterval(timer);
+  sfx.click();
+  updateCounts();
+  $("#bestScore").textContent = getBest();
+  setHue("Космос");
+  show("#screen-start");
+}
+$("#menuBtn").onclick = toMenu;
+$("#quitBtn").onclick = toMenu;
 
 $("#soundBtn").onclick = ()=>{
   muted = !muted;
@@ -816,6 +839,7 @@ addEventListener("keydown", e=>{
   if(k==="f"){ toggleFS(); return; }
   if(k==="m"){ $("#soundBtn").click(); return; }
   if($("#screen-game").classList.contains("show")){
+    if(k==="escape"){ toMenu(); return; }
     if(["1","2","3","4"].includes(k)){
       const a = $$(".ans")[+k-1];
       if(a && !S.answered && !a.classList.contains("gone")) a.click();
