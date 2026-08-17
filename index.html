@@ -354,6 +354,7 @@ body.tt .ans .vc{display:block}
 #rotate p{font-size:clamp(15px,3.4vmin,30px); font-weight:800; line-height:1.4}
 #rotate small{color:var(--dim); font-size:clamp(11px,2.2vmin,18px)}
 @media (orientation:portrait) and (max-width:900px){ #rotate{display:grid} }
+body.rotok #rotate{display:none !important}   /* „Продължи все пак“ */
 
 /* ============ КОНФЕТИ ============ */
 .spark{position:fixed; z-index:50; pointer-events:none; border-radius:50%; will-change:transform,opacity}
@@ -511,6 +512,7 @@ body.tt .ans .vc{display:block}
     <div class="ph">📱</div>
     <p>Завърти устройството хоризонтално</p>
     <small>Играта е направена за широк екран</small>
+    <button class="btn ghost" id="rotBtn">Продължи все пак</button>
   </div>
 </div>
 
@@ -1050,6 +1052,8 @@ function toMenu(){
 }
 $("#menuBtn").onclick = toMenu;
 $("#quitBtn").onclick = toMenu;
+
+$("#rotBtn").onclick = ()=>{ sfx.click(); document.body.classList.add("rotok"); };
 
 $("#soundBtn").onclick = ()=>{
   muted = !muted;
