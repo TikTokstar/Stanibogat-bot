@@ -17,8 +17,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist "node_modules" (
-  echo  First run - installing. Takes about a minute...
+rem install on first run, and again after an update adds something new
+set "NEED="
+if not exist "node_modules"   set "NEED=1"
+if exist ".needs-install"     set "NEED=1"
+if defined NEED (
+  echo  Installing, takes about a minute...
   echo.
   call npm install --no-audit --no-fund
   if errorlevel 1 (
@@ -27,6 +31,7 @@ if not exist "node_modules" (
     pause
     exit /b 1
   )
+  if exist ".needs-install" del ".needs-install" >nul 2>nul
   echo.
 )
 

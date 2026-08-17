@@ -35,6 +35,8 @@ else
   cp -R "$src/." .
 fi
 
+touch server/.needs-install 2>/dev/null || true
+
 echo
-echo "  Готово! Отвори index.html, за да играеш."
+echo "  Готово! Пусни ./START.sh както обикновено."
 echo

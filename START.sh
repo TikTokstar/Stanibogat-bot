@@ -16,10 +16,11 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -d node_modules ]; then
-  echo "  Първо пускане — инсталиране, отнема около минута…"
+if [ ! -d node_modules ] || [ -f .needs-install ]; then
+  echo "  Инсталиране, отнема около минута…"
   echo
   npm install --no-audit --no-fund
+  rm -f .needs-install
   echo
 fi
 
