@@ -55,6 +55,9 @@ const httpServer = http.createServer((req, res) => {
 let conn = null;
 let currentUser = "";
 let viewers = 0;
+let wanted = "";          // към кого искаме да сме свързани
+let retryTimer = null;    // чакане стриймът да тръгне
+const RETRY_SEC = 15;
 
 const wss = new WebSocketServer({ server: httpServer });   // същият порт като играта
 
@@ -87,16 +90,19 @@ function readChat(data){
 const readViewers = d => Number(d.totalUser || d.total || d.viewerCount || 0) || 0;
 
 async function disconnectTikTok(){
+  clearTimeout(retryTimer); retryTimer = null;
+  wanted = "";
   if(!conn) return;
   try{ conn.disconnect(); }catch(e){}
   conn = null; currentUser = ""; viewers = 0;
 }
 
-async function connectTikTok(rawName){
+async function connectTikTok(rawName, isRetry = false){
   const username = String(rawName || "").trim().replace(/^@/, "");
   if(!username){ broadcast({ type:"error", message:"Липсва потребителско име." }); return; }
 
   await disconnectTikTok();
+  wanted = username;
   broadcast({ type:"info", message:`Свързване към @${username}…` });
   console.log(`\n→ Свързване към @${username} …`);
 
@@ -120,19 +126,34 @@ async function connectTikTok(rawName){
     currentUser = "";
     broadcast(status());
   });
-  c.on(ControlEvent.ERROR, err => console.error("! Грешка:", err?.message || err));
+  c.on(ControlEvent.ERROR, err => {
+    const m = err?.exception?.message || err?.message || err?.info || String(err);
+    console.error("  ! " + m);
+  });
 
   try{
     await c.connect();
+    clearTimeout(retryTimer); retryTimer = null;
     conn = c; currentUser = username;
     console.log(`✓ Свързан към @${username}. Коментарите вече текат към играта.`);
     broadcast(status());
   }catch(err){
     const msg = err?.message || String(err);
+    const offline = /offline|isn't online|not online|not found/i.test(msg);
+
+    // Стриймът често се пуска след играта. Няма смисъл човек да цъка пак —
+    // чакаме сами, докато тръгне, и спираме само ако бъде прекъснато.
+    if(offline && wanted === username){
+      if(!isRetry) console.log(`  @${username} още не е на живо. Чакам и пробвам всеки ${RETRY_SEC} сек…`);
+      broadcast({ type:"info",
+        message:`@${username} още не е на живо — чакам да пуснеш LIVE. Проверявам всеки ${RETRY_SEC} сек.` });
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => connectTikTok(username, true), RETRY_SEC * 1000);
+      return;
+    }
+
     console.error(`✗ Неуспешна връзка към @${username}: ${msg}`);
-    broadcast({ type:"error", message: /offline|not found|isn't online|LIVE/i.test(msg)
-      ? `@${username} не е на живо в момента.`
-      : `Грешка при свързване: ${msg}` });
+    broadcast({ type:"error", message:`Грешка при свързване: ${msg}` });
     broadcast(status());
   }
 }
