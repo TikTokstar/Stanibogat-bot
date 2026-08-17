@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "tiktok-live-connector": "^2.4.3",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "cloudflared": "^0.7.1"
   }
 }

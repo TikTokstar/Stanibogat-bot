@@ -14,6 +14,7 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+const { spawn } = require('child_process');
 const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-live-connector');
 const { WebSocketServer } = require('ws');
 
@@ -57,10 +58,17 @@ let viewers = 0;
 
 const wss = new WebSocketServer({ server: httpServer });   // същият порт като играта
 
+/* Когато е пуснат публичен линк, през него влизат непознати хора.
+   Те получават само играта — нито виждат TikTok чата, нито могат да
+   пипат връзката към стрийма. Това важи само за домакина на компютъра. */
+const viaTunnel = req => !!(req.headers["cf-connecting-ip"] ||
+                            req.headers["cf-ray"] ||
+                            req.headers["x-forwarded-for"]);
+
 function send(ws, obj){ if(ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); }
 function broadcast(obj){
   const s = JSON.stringify(obj);
-  for(const c of wss.clients) if(c.readyState === c.OPEN) c.send(s);
+  for(const c of wss.clients) if(c.readyState === c.OPEN && c.isHost) c.send(s);
 }
 function status(extra = {}){
   return { type:"status", connected: !!(conn && currentUser), user: currentUser, viewers, ...extra };
@@ -129,7 +137,15 @@ async function connectTikTok(rawName){
   }
 }
 
-wss.on("connection", ws => {
+wss.on("connection", (ws, req) => {
+  ws.isHost = !viaTunnel(req);
+
+  // зрителите през публичния линк получават обикновена игра, без TikTok
+  if(!ws.isHost){
+    send(ws, { type:"status", connected:false, user:"", viewers:0 });
+    return;
+  }
+
   send(ws, status());
   ws.on("message", raw => {
     let msg; try{ msg = JSON.parse(raw.toString()); }catch{ return; }
@@ -145,6 +161,57 @@ function localIP(){
     for(const n of list || [])
       if(n.family === "IPv4" && !n.internal) return n.address;
   return null;
+}
+
+/* ---------- публичен линк (само при LINK-ZA-TIKTOK.bat) ----------
+   Пуска тунел през Cloudflare, който извежда локалния сървър в интернет
+   и връща готов https адрес. Не иска регистрация. Ако не тръгне,
+   играта продължава да работи локално както обикновено. */
+function startTunnel(){
+  let bin;
+  try{ bin = require('cloudflared').bin; }
+  catch(e){
+    console.log("  ! Липсва частта за публичен линк. Пусни START.bat веднъж, за да се достави.\n");
+    return;
+  }
+  if(!fs.existsSync(bin)){
+    console.log("  ! Частта за публичен линк не е свалена докрай. Изтрий папката server/node_modules и пусни пак.\n");
+    return;
+  }
+
+  console.log("  Правя публичен линк, изчакай 5–15 секунди…\n");
+  const cf = spawn(bin, ["tunnel", "--url", `http://localhost:${PORT}`], { stdio:["ignore","pipe","pipe"] });
+
+  let found = false;
+  const scan = buf => {
+    const m = String(buf).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
+    if(m && !found){
+      found = true;
+      console.log(`
+  ╔════════════════════════════════════════════════════════╗
+  ║   ЛИНК ЗА TIKTOK — копирай го оттук:                   ║
+  ╚════════════════════════════════════════════════════════╝
+
+     ${m[0]}
+
+  Този линк работи, докато този прозорец е отворен.
+  При следващо пускане ще е различен.
+`);
+    }
+  };
+  cf.stdout.on("data", scan);
+  cf.stderr.on("data", scan);
+
+  cf.on("exit", code => {
+    if(!found) console.log(`
+  ! Публичният линк не тръгна (код ${code}).
+    Играта работи нормално на http://localhost:${PORT}
+    Провери интернета си или пробвай пак след малко.
+`);
+  });
+  cf.on("error", err => console.log("  ! Публичният линк не тръгна:", err.message, "\n"));
+
+  process.on("exit", () => { try{ cf.kill(); }catch(e){} });
 }
 
 httpServer.listen(PORT, () => {
@@ -164,6 +231,7 @@ ${ip ? `  От телефон/друг компютър в същата мреж
   ВАЖНО: този прозорец трябва да остане отворен.
   Спиране: Ctrl + C
 `);
+  if(process.env.TUNNEL === "1") startTunnel();
 });
 
 // име от командния ред: START.bat @име
