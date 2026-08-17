@@ -1150,6 +1150,33 @@ segs("#segTime","time");
 updateCounts();
 $("#bestScore").textContent = getBest();
 setHue("Космос");
+
+/* Адресът може да носи готови настройки. Полезно за "браузър източник"
+   в TikTok Studio или OBS, където кликането е неудобно:
+     ?tiktok=име   свързва се към стрийма сам
+     ?start=1      пуска играта веднага
+     ?count=0      брой въпроси (0 = без край)
+     ?time=45      секунди за отговор (0 = без лимит)
+   Пример: http://127.0.0.1:8080/index.html?tiktok=name&start=1&count=0 */
+(function fromURL(){
+  const p = new URLSearchParams(location.search);
+
+  const pick = (seg, v) => {
+    const b = $(`${seg} button[data-v="${v}"]`);
+    if(!b) return false;
+    [...b.parentNode.children].forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    return true;
+  };
+  if(p.has("count") && pick("#segCount", +p.get("count"))) cfg.count = +p.get("count");
+  if(p.has("time")  && pick("#segTime",  +p.get("time")))  cfg.time  = +p.get("time");
+  updateCounts();
+
+  const user = p.get("tiktok");
+  if(user){ $("#ttUser").value = user.replace(/^@/, ""); ttConnect(); }
+  // при свързване изчакваме малко, за да е ясен статусът преди първия въпрос
+  if(p.get("start") === "1") setTimeout(startGame, user ? 2500 : 400);
+})();
 </script>
 </body>
 </html>
