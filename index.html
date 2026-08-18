@@ -747,7 +747,7 @@ function armAutostart(){
   autoTimer2 = setInterval(()=>{
     left--;
     $("#autoSec").textContent = left;
-    if(left <= 0){ cancelAutostart(); startGame(); }
+    if(left <= 0){ cancelAutostart(); streamMode = true; startGame(); }
   }, 1000);
 }
 function cancelAutostart(){
@@ -842,16 +842,22 @@ function setHue(cat){
 /* ==================== ИГРА ==================== */
 let timer=null;
 
+let streamMode = false;   // пуснато само или тече стрийм → нищо не чака клик
+
 function startGame(){
   cancelAutostart();
   // сървърът помни избора, за да тръгне така и в прозорчето на TikTok Studio
   try{ TT.ws && TT.ws.readyState === 1 &&
        TT.ws.send(JSON.stringify({type:"setup", count:cfg.count, time:cfg.time})); }catch(e){}
   const inf = cfg.count === 0;                 // безкраен режим — за цял стрийм
+  const hands = streamMode || TT.live || inf;  // върви само, без нито един клик
+  // без ръце няма кой да отговори, затова "Без лимит" получава реално време
+  const time = (hands && cfg.time === 0) ? 25 : cfg.time;
   const all = poolFor();
-  S = { inf, pool: inf ? [] : shuffle(all).slice(0, Math.min(cfg.count, all.length)),
+  S = { inf, hands, time,
+        pool: inf ? [] : shuffle(all).slice(0, Math.min(cfg.count, all.length)),
         i:0, score:0, streak:0, best:0, correct:0, asked:0, marks:[],
-        answered:false, left:cfg.time, used:{}, perCat:{} };
+        answered:false, left:time, used:{}, perCat:{} };
   if(inf) ensureQuestion(0);
   show("#screen-game");
   render();
@@ -889,7 +895,7 @@ function render(){
   if(S.inf) ensureQuestion(S.i);
   const q = S.pool[S.i];
   S.answered = false;
-  S.left = cfg.time;
+  S.left = S.time;
   setHue(q.c);
 
   const icon = (CATEGORIES[q.c]||{}).icon||"✨";
@@ -922,7 +928,7 @@ function render(){
   resetVotes();
 
   $("#ll50").disabled = !!S.used.f50;
-  $("#llTime").disabled = !!S.used.time || cfg.time===0;   // безсмислен без таймер
+  $("#llTime").disabled = !!S.used.time || S.time===0;   // безсмислен без таймер
   $("#llSkip").disabled = !!S.used.skip;
 
   runTimer();
@@ -932,14 +938,14 @@ function runTimer(){
   clearInterval(timer);
 
   // режим без ограничение във времето
-  if(cfg.time===0){
+  if(S.time===0){
     $("#tnum").textContent = "∞";
     $("#tfill").style.width = "100%";
     $("#timerWrap").classList.remove("low");
     return;
   }
 
-  const total = cfg.time;
+  const total = S.time;
   const upd = ()=>{
     $("#tnum").textContent = Math.ceil(S.left);
     $("#tfill").style.width = Math.max(0, (S.left/total)*100) + "%";
@@ -986,7 +992,7 @@ function reveal(btn, ok){
 
   if(ok){
     // бонусът е дял от оставащото време, за да са сравними резултатите при 30/45/60 сек
-    const timeBonus = cfg.time ? Math.round((S.left/cfg.time)*150) : 0;
+    const timeBonus = S.time ? Math.round((S.left/S.time)*150) : 0;
     const streakBonus = Math.min(S.streak,5)*25;
     const gain = 100 + timeBonus + streakBonus;
     S.score += gain; S.correct++; S.streak++;
@@ -1018,7 +1024,7 @@ function reveal(btn, ok){
 let autoTimer = null;
 function autoNext(){
   clearInterval(autoTimer);
-  if(!TT.live && !S.inf) return;
+  if(!S.hands) return;
   const label = (!S.inf && S.i >= S.pool.length-1) ? "Резултат" : "Напред";
   let left = 8;
   const tick = ()=>{
@@ -1046,7 +1052,7 @@ $("#ll50").onclick = ()=>{
   shuffle(wrong).slice(0,2).forEach(a=>a.classList.add("gone"));
 };
 $("#llTime").onclick = ()=>{
-  if(S.answered || S.used.time || cfg.time===0) return;
+  if(S.answered || S.used.time || S.time===0) return;
   S.used.time = true; $("#llTime").disabled = true; sfx.click();
   S.left += 20;
 };
@@ -1148,7 +1154,7 @@ function rain(){
 }
 
 /* ==================== УПРАВЛЕНИЕ ==================== */
-$("#startBtn").onclick = ()=>{ sfx.click(); startGame(); };
+$("#startBtn").onclick = ()=>{ sfx.click(); streamMode = TT.live; startGame(); };
 $("#nextBtn").onclick = ()=>{ sfx.click(); next(); };
 $("#againBtn").onclick = ()=>{ sfx.click(); startGame(); };
 function toMenu(){
