@@ -160,6 +160,19 @@ body{
 .btn.ghost{background:rgba(255,255,255,.1); color:var(--ink); border:1px solid var(--line); box-shadow:none}
 .btn.ghost:hover{background:rgba(255,255,255,.18)}
 .hint{font-size:clamp(8px,1.45vmin,14px); color:rgba(244,242,255,.42); text-align:center}
+.autonote{
+  display:flex; align-items:center; justify-content:center; gap:1.4vmin;
+  font-size:clamp(9px,1.75vmin,17px); font-weight:700; color:var(--gold);
+  background:rgba(255,210,103,.12); border:1px solid rgba(255,210,103,.35);
+  border-radius:99px; padding:.9vmin 1.8vmin;
+}
+.autonote b{font-variant-numeric:tabular-nums; min-width:1.4ch; display:inline-block; text-align:center}
+.autonote button{
+  border:1px solid var(--line); background:rgba(0,0,0,.25); color:var(--ink);
+  font-family:inherit; font-weight:700; font-size:inherit;
+  border-radius:99px; padding:.3vmin 1.4vmin; cursor:pointer;
+}
+.autonote button:hover{background:rgba(255,255,255,.18)}
 
 /* ============ ИГРА ============ */
 #screen-game{grid-template-rows:auto 1fr; gap:2.2vmin}
@@ -435,9 +448,9 @@ body.rotok #rotate{display:none !important}   /* „Продължи все па
       </div>
 
       <button class="btn" id="startBtn" style="width:100%">▶ Започни играта</button>
-      <div class="hint" id="autoNote" style="display:none">
-        Тръгва сама след <b id="autoSec">8</b> сек ·
-        <a href="#" id="autoCancel" style="color:var(--gold)">спри</a>
+      <div class="autonote" id="autoNote" style="display:none">
+        ▶ Тръгва сама след <b id="autoSec">8</b> сек
+        <button type="button" id="autoCancel">спри</button>
       </div>
       <div class="hint">Клавиши: 1–4 отговор · Enter напред · Esc приключи · F цял екран · M звук</div>
     </div>
@@ -666,7 +679,6 @@ function ttOpen(then){
 
     if(m.type==="status"){
       applySetup(m.setup);
-      if(m.autostart) armAutostart();
       TT.live = !!m.connected;
       TT.user = m.user || "";
       TT.viewers = m.viewers || 0;
@@ -1147,7 +1159,7 @@ function toMenu(){
   $("#bestScore").textContent = getBest();
   setHue("Космос");
   show("#screen-start");
-  if(TT.live || TT.ws){ autoArmed = false; armAutostart(); }
+  if(location.protocol.startsWith("http")){ autoArmed = false; armAutostart(); }
 }
 $("#menuBtn").onclick = toMenu;
 
@@ -1235,7 +1247,12 @@ setHue("Космос");
 
   // при отваряне през сървъра се закачаме веднага, за да получим
   // запомнените настройки и да разберем дали има активен стрийм
-  if(location.protocol.startsWith("http")) ttOpen();
+  if(location.protocol.startsWith("http")){
+    ttOpen();
+    // Прозорчето в TikTok Studio не приема кликове, затова играта тръгва
+    // сама. Не зависи от нищо запомнено — иначе първия път не потегля.
+    armAutostart();
+  }
 
   const user = p.get("tiktok");
   if(user){ $("#ttUser").value = user.replace(/^@/, ""); ttConnect(); }
