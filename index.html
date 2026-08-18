@@ -310,6 +310,8 @@ body.tt .ans .vc{display:block}
 .ans.correct .lt{background:var(--ok); color:#03260f; border-color:transparent}
 .ans.wrong{background:linear-gradient(120deg,rgba(255,93,108,.32),rgba(255,93,108,.12)); border-color:var(--bad); animation:shake .38s}
 .ans.wrong .lt{background:var(--bad); color:#2a0006; border-color:transparent}
+.ans.lead{box-shadow:0 0 0 2px var(--gold), 0 1.4vmin 4vmin rgba(255,210,103,.25)}
+.ans.lead .lt{background:var(--gold); color:#2a1c00; border-color:transparent}
 .ans.faded{opacity:.28}
 .ans.gone{opacity:.12; pointer-events:none}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-.9vmin)}75%{transform:translateX(.9vmin)}}
@@ -787,6 +789,8 @@ function resetVotes(){
 
 function paintVotes(){
   const total = TT.votes.reduce((a,b)=>a+b,0);
+  const top = total ? Math.max(...TT.votes) : 0;
+  const answered = S && S.answered;
   $$(".ans").forEach((a,i)=>{
     const n = TT.votes[i]||0;
     const pct = total ? (n/total)*100 : 0;
@@ -794,8 +798,20 @@ function paintVotes(){
     const cnt  = a.querySelector(".vc");
     if(fill) fill.style.width = (TT.live ? pct : 0) + "%";
     if(cnt)  cnt.textContent = total ? `${n} · ${Math.round(pct)}%` : "0";
+    // водещият в момента се откроява, за да се вижда как се обръща
+    a.classList.toggle("lead", TT.live && !answered && n > 0 && n === top);
   });
   paintLive();
+}
+
+/* Отговорът на публиката: този с най-много гласове. При равенство печели
+   случаен измежду водещите, за да не е винаги първият по ред. */
+function crowdChoice(){
+  const total = TT.votes.reduce((a,b)=>a+b,0);
+  if(!total) return -1;
+  const top = Math.max(...TT.votes);
+  const vodeshti = TT.votes.map((n,i)=>[n,i]).filter(([n])=>n===top).map(([,i])=>i);
+  return vodeshti[(Math.random()*vodeshti.length)|0];
 }
 
 function paintLive(){
@@ -963,8 +979,16 @@ function runTimer(){
 
 function timeUp(){
   clearInterval(timer);
+
+  // при стрийм играе публиката — избира се отговорът с най-много гласове
+  if(TT.live){
+    const izbor = crowdChoice();
+    const btn = izbor >= 0 ? $$(".ans")[izbor] : null;
+    if(btn){ reveal(btn, btn.dataset.ok === "1", true); return; }
+  }
+
   reveal(null,false);
-  $("#verdict").textContent="⏰ Времето изтече!";
+  $("#verdict").textContent = TT.live ? "⏰ Никой не гласува" : "⏰ Времето изтече!";
   $("#verdict").className="bad";
 }
 
@@ -973,7 +997,7 @@ function answer(btn, ok){
   reveal(btn, ok);
 }
 
-function reveal(btn, ok){
+function reveal(btn, ok, otPublikata){
   S.answered = true;
   clearInterval(timer);
   const q = S.pool[S.i];
@@ -984,6 +1008,7 @@ function reveal(btn, ok){
   const answers = $$(".ans");
   answers.forEach(a=>{
     a.classList.add("locked");
+    a.classList.remove("lead");
     if(a.dataset.ok==="1") a.classList.add("correct");
     else if(a===btn) a.classList.add("wrong");
     else a.classList.add("faded");
@@ -1000,7 +1025,7 @@ function reveal(btn, ok){
     S.perCat[q.c].c++;
     $("#score").textContent = S.score;
     $("#streak").textContent = S.streak + "×";
-    $("#verdict").textContent = `✔ Вярно  +${gain}`;
+    $("#verdict").textContent = (otPublikata ? "✔ Публиката позна!  +" : "✔ Вярно  +") + gain;
     $("#verdict").className = "ok";
     markDot("g");
     sfx.right();
@@ -1008,7 +1033,10 @@ function reveal(btn, ok){
   }else{
     S.streak = 0;
     $("#streak").textContent = "0×";
-    if(btn){ $("#verdict").textContent="✘ Грешен отговор"; $("#verdict").className="bad"; }
+    if(btn){
+      $("#verdict").textContent = otPublikata ? "✘ Публиката сгреши" : "✘ Грешен отговор";
+      $("#verdict").className = "bad";
+    }
     markDot("r");
     sfx.wrong();
   }
