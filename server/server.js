@@ -113,6 +113,16 @@ function readChat(data){
 }
 const readViewers = d => Number(d.totalUser || d.total || d.viewerCount || 0) || 0;
 
+// същото разчитане като в играта, само за да се вижда в конзолата
+const VOTES = {"1":"А","2":"Б","3":"В","4":"Г","а":"А","б":"Б","в":"В","г":"Г",
+               "a":"А","b":"Б","c":"В","d":"Г"};
+function voteOf(text){
+  const m = String(text).trim().toLowerCase()
+    .match(/^[^\p{L}\p{N}]*([1-4]|[абвгabcd])(?![\p{L}\p{N}])/u);
+  return m ? VOTES[m[1]] : null;
+}
+let chatSeen = 0;
+
 async function disconnectTikTok(){
   clearTimeout(retryTimer); retryTimer = null;
   wanted = "";
@@ -135,6 +145,15 @@ async function connectTikTok(rawName, isRetry = false){
 
   c.on(WebcastEvent.CHAT, data => {
     const m = readChat(data);
+    chatSeen++;
+
+    // ако текстът излиза празен, показваме какво реално идва
+    if(!m.text && chatSeen <= 3){
+      console.log("  ! Коментар без текст. Полета:", Object.keys(data || {}).join(", "));
+      return;
+    }
+    const glas = voteOf(m.text);
+    console.log(`  💬 ${m.nick}: ${m.text}${glas ? `   →  ГЛАС ${glas}` : "   (не е глас)"}`);
     if(m.text) broadcast(m);
   });
   c.on(WebcastEvent.ROOM_USER, data => {
@@ -160,8 +179,21 @@ async function connectTikTok(rawName, isRetry = false){
     await c.connect();
     clearTimeout(retryTimer); retryTimer = null;
     conn = c; currentUser = username;
-    console.log(`✓ Свързан към @${username}. Коментарите вече текат към играта.`);
+    console.log(`✓ Свързан към @${username}.`);
+    console.log(`  Чакам коментари. Всеки ще се изписва тук.`);
+    console.log(`  Зрителите гласуват с 1, 2, 3, 4 или А, Б, В, Г.\n`);
     broadcast(status());
+
+    const beleg = chatSeen;
+    setTimeout(() => {
+      if(chatSeen === beleg && conn === c){
+        console.log(`
+  ! От свързването насам не е дошъл нито един коментар.
+    Ако в чата се пише, но тук е празно, кажи го - значи проблемът е
+    във връзката с TikTok, а не в играта.
+`);
+      }
+    }, 90000);
   }catch(err){
     const msg = err?.message || String(err);
     const offline = /offline|isn't online|not online|not found|room id/i.test(msg);

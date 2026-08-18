@@ -638,6 +638,7 @@ function segs(id, key){
    ==================================================== */
 const TT = {
   ws:null, live:false, user:"", viewers:0,
+  chats:0,                   // колко коментара изобщо са дошли
   votes:[0,0,0,0],          // гласове за А, Б, В, Г за текущия въпрос
   voters:new Map(),          // userId -> избран индекс (брои се само първият глас)
   board:new Map(),           // userId -> {nick, pts}
@@ -697,7 +698,7 @@ function ttOpen(then){
       }
       paintLive();
     }
-    if(m.type==="chat")  onVote(m);
+    if(m.type==="chat"){ TT.chats++; onVote(m); paintLive(); }
     if(m.type==="info")  ttSet(m.message);
     if(m.type==="error") ttSet(m.message, "bad");
   };
@@ -824,7 +825,7 @@ function paintLive(){
   if(!TT.live){ chip.style.display = "none"; return; }
   chip.style.display = "flex";
   const total = TT.votes.reduce((a,b)=>a+b,0);
-  $("#liveTxt").textContent = `@${TT.user} · 👁 ${TT.viewers} · 🗳 ${total}`;
+  $("#liveTxt").textContent = `@${TT.user} · 👁 ${TT.viewers} · 💬 ${TT.chats} · 🗳 ${total}`;
 }
 
 // зрителите, познали верния отговор, получават точка
