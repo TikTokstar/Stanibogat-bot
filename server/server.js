@@ -56,9 +56,21 @@ let conn = null;
 let currentUser = "";
 let viewers = 0;
 let wanted = "";          // към кого искаме да сме свързани
-const USER_FILE = path.join(__dirname, '.last-user');
-const readUser  = () => { try{ return fs.readFileSync(USER_FILE,'utf8').trim(); }catch{ return ""; } };
-const saveUser  = u => { try{ fs.writeFileSync(USER_FILE, u); }catch{} };
+/* Помним името и настройките, за да може прозорчето в TikTok Studio,
+   където не може да се цъка, да тръгне само с последно ползваните. */
+const SETUP_FILE = path.join(__dirname, '.stream-setup.json');
+function readSetup(){
+  try{ return JSON.parse(fs.readFileSync(SETUP_FILE,'utf8')); }
+  catch{
+    try{ return { user: fs.readFileSync(path.join(__dirname,'.last-user'),'utf8').trim() }; }
+    catch{ return {}; }
+  }
+}
+function writeSetup(patch){
+  try{ fs.writeFileSync(SETUP_FILE, JSON.stringify({ ...readSetup(), ...patch })); }catch{}
+}
+const readUser = () => readSetup().user || "";
+const saveUser = u => writeSetup({ user: u });
 let retryTimer = null;    // чакане стриймът да тръгне
 const RETRY_SEC = 15;
 
@@ -77,7 +89,16 @@ function broadcast(obj){
   for(const c of wss.clients) if(c.readyState === c.OPEN && c.isHost) c.send(s);
 }
 function status(extra = {}){
-  return { type:"status", connected: !!(conn && currentUser), user: currentUser, viewers, ...extra };
+  const setup = readSetup();
+  return {
+    type:"status",
+    connected: !!(conn && currentUser),
+    user: currentUser, viewers,
+    setup: { count: setup.count, time: setup.time },
+    // има ли запомнено име, значи е за стрийм — тогава играта тръгва сама
+    autostart: !!setup.user,
+    ...extra
+  };
 }
 
 // работи и със стария, и с новия формат на библиотеката
@@ -183,6 +204,7 @@ wss.on("connection", (ws, req) => {
     if(msg.type === "connect")    connectTikTok(msg.username);
     if(msg.type === "disconnect") disconnectTikTok().then(()=> broadcast(status()));
     if(msg.type === "ping")       send(ws, status());
+    if(msg.type === "setup")      writeSetup({ count: msg.count, time: msg.time });
   });
 });
 

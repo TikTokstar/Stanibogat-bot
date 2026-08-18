@@ -435,6 +435,10 @@ body.rotok #rotate{display:none !important}   /* „Продължи все па
       </div>
 
       <button class="btn" id="startBtn" style="width:100%">▶ Започни играта</button>
+      <div class="hint" id="autoNote" style="display:none">
+        Тръгва сама след <b id="autoSec">8</b> сек ·
+        <a href="#" id="autoCancel" style="color:var(--gold)">спри</a>
+      </div>
       <div class="hint">Клавиши: 1–4 отговор · Enter напред · Esc приключи · F цял екран · M звук</div>
     </div>
   </section>
@@ -641,35 +645,37 @@ function ttSet(msg, cls){
   el.className = "hint" + (cls ? " " + cls : "");
 }
 
-function ttConnect(){
-  const name = $("#ttUser").value.trim();
-  if(!name){ ttSet("Въведи потребителско име в TikTok.", "bad"); return; }
-  clearTimeout(TT.retry);
-
-  try{ if(TT.ws) TT.ws.close(); }catch(e){}
-  ttSet("Свързване със сървъра…");
+/* Връзката със сървъра се вдига веднага при отваряне на страницата, а не
+   чак при цъкане на "Свържи". Иначе прозорчето в TikTok Studio, където
+   никой не цъка, никога не научава нито настройките, нито че има стрийм. */
+function ttOpen(then){
+  if(TT.ws && (TT.ws.readyState === 0 || TT.ws.readyState === 1)){
+    if(then) TT.ws.readyState === 1 ? then() : TT.ws.addEventListener("open", then, {once:true});
+    return;
+  }
 
   let ws;
   try{ ws = new WebSocket(TT_URL); }
   catch(e){ ttSet("Сървърът не е пуснат. Затвори това и пусни START.bat.", "bad"); return; }
   TT.ws = ws;
 
-  ws.onopen = ()=>{
-    ttSet("Сървърът отговори. Търся стрийма…");
-    ws.send(JSON.stringify({type:"connect", username:name}));
-  };
+  ws.onopen = ()=>{ if(then) then(); };
 
   ws.onmessage = ev=>{
     let m; try{ m = JSON.parse(ev.data); }catch{ return; }
 
     if(m.type==="status"){
+      applySetup(m.setup);
+      if(m.autostart) armAutostart();
       TT.live = !!m.connected;
       TT.user = m.user || "";
       TT.viewers = m.viewers || 0;
       document.body.classList.toggle("tt", TT.live);
       $("#ttBtn").textContent = TT.live ? "Прекъсни" : "Свържи";
-      if(TT.live) ttSet(`Свързан с @${TT.user} — зрителите могат да гласуват с 1–4.`, "ok");
-      else if(TT.ws) ttSet("Сървърът работи, но няма активен стрийм.");
+      if(TT.live){
+        if(!$("#ttUser").value.trim()) $("#ttUser").value = TT.user;
+        ttSet(`Свързан с @${TT.user} — зрителите могат да гласуват с 1–4.`, "ok");
+      }
       paintLive();
     }
     if(m.type==="chat")  onVote(m);
@@ -677,7 +683,7 @@ function ttConnect(){
     if(m.type==="error") ttSet(m.message, "bad");
   };
 
-  ws.onerror = ()=> ttSet("Сървърът не отговаря. Пусни START.bat и отвори играта от http://localhost:8080", "bad");
+  ws.onerror = ()=>{};   // причината се вижда в onclose, за да няма двойни съобщения
 
   ws.onclose = ()=>{
     TT.ws = null; TT.live = false;
@@ -687,14 +693,64 @@ function ttConnect(){
   };
 }
 
+function ttConnect(){
+  const name = $("#ttUser").value.trim();
+  if(!name){ ttSet("Въведи потребителско име в TikTok.", "bad"); return; }
+  ttSet("Свързване със сървъра…");
+  ttOpen(()=>{
+    ttSet("Сървърът отговори. Търся стрийма…");
+    TT.ws.send(JSON.stringify({type:"connect", username:name}));
+  });
+}
+
+/* Прозорчето в TikTok Studio не може да се цъка. Затова играта тръгва сама
+   с последно ползваните настройки. В обикновен браузър отброяването се спира
+   с един клик, за да може човек да си избере категории на спокойствие. */
+let autoTimer2 = null, autoArmed = false;
+const urlHas = k => new URLSearchParams(location.search).has(k);
+
+function applySetup(setup){
+  if(!setup || S) return;                       // по време на игра не пипаме
+  const pick = (seg, v, key) => {
+    if(v === undefined || v === null) return;
+    const b = $(`${seg} button[data-v="${v}"]`);
+    if(!b) return;
+    [...b.parentNode.children].forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    cfg[key] = v;
+  };
+  if(!urlHas("count")) pick("#segCount", setup.count, "count");
+  if(!urlHas("time"))  pick("#segTime",  setup.time,  "time");
+  updateCounts();
+}
+
+function armAutostart(){
+  if(autoArmed || urlHas("start")) return;      // ?start=1 се грижи сам
+  if(!$("#screen-start").classList.contains("show")) return;
+  autoArmed = true;
+
+  let left = 8;
+  $("#autoNote").style.display = "block";
+  $("#autoSec").textContent = left;
+  autoTimer2 = setInterval(()=>{
+    left--;
+    $("#autoSec").textContent = left;
+    if(left <= 0){ cancelAutostart(); startGame(); }
+  }, 1000);
+}
+function cancelAutostart(){
+  clearInterval(autoTimer2);
+  $("#autoNote").style.display = "none";
+}
+$("#autoCancel").onclick = e => { e.preventDefault(); sfx.click(); autoArmed = true; cancelAutostart(); };
+
 function ttDisconnect(){
   clearTimeout(TT.retry);
   try{ TT.ws && TT.ws.send(JSON.stringify({type:"disconnect"})); }catch(e){}
-  try{ TT.ws && TT.ws.close(); }catch(e){}
-  TT.ws = null; TT.live = false;
+  TT.live = false;
   document.body.classList.remove("tt");
   $("#ttBtn").textContent = "Свържи";
-  ttSet("Изключено. Играта работи и без TikTok.");
+  ttSet("Изключено от стрийма. Играта работи и без TikTok.");
   paintLive();
 }
 
@@ -758,7 +814,7 @@ function paintBoard(){
 }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-$("#ttBtn").onclick = ()=>{ sfx.click(); TT.live || TT.ws ? ttDisconnect() : ttConnect(); };
+$("#ttBtn").onclick = ()=>{ sfx.click(); TT.live ? ttDisconnect() : ttConnect(); };
 $("#ttUser").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.stopPropagation(); ttConnect(); } });
 
 /* ==================== ЕКРАНИ ==================== */
@@ -775,6 +831,10 @@ function setHue(cat){
 let timer=null;
 
 function startGame(){
+  cancelAutostart();
+  // сървърът помни избора, за да тръгне така и в прозорчето на TikTok Studio
+  try{ TT.ws && TT.ws.readyState === 1 &&
+       TT.ws.send(JSON.stringify({type:"setup", count:cfg.count, time:cfg.time})); }catch(e){}
   const inf = cfg.count === 0;                 // безкраен режим — за цял стрийм
   const all = poolFor();
   S = { inf, pool: inf ? [] : shuffle(all).slice(0, Math.min(cfg.count, all.length)),
@@ -1087,6 +1147,7 @@ function toMenu(){
   $("#bestScore").textContent = getBest();
   setHue("Космос");
   show("#screen-start");
+  if(TT.live || TT.ws){ autoArmed = false; armAutostart(); }
 }
 $("#menuBtn").onclick = toMenu;
 
@@ -1171,6 +1232,10 @@ setHue("Космос");
   if(p.has("count") && pick("#segCount", +p.get("count"))) cfg.count = +p.get("count");
   if(p.has("time")  && pick("#segTime",  +p.get("time")))  cfg.time  = +p.get("time");
   updateCounts();
+
+  // при отваряне през сървъра се закачаме веднага, за да получим
+  // запомнените настройки и да разберем дали има активен стрийм
+  if(location.protocol.startsWith("http")) ttOpen();
 
   const user = p.get("tiktok");
   if(user){ $("#ttUser").value = user.replace(/^@/, ""); ttConnect(); }
