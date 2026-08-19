@@ -285,6 +285,8 @@ body.tt .ans .vc{display:block}
   background:rgba(255,40,90,.2); border:1px solid rgba(255,80,120,.5);
   font-weight:700; font-size:clamp(9px,1.7vmin,17px); white-space:nowrap;
 }
+.livechip.off{background:rgba(120,120,140,.28); border-color:rgba(200,200,220,.4)}
+.livechip.off .rec{background:#9aa; animation:none}
 .livechip .rec{width:1.2vmin; height:1.2vmin; min-width:7px; min-height:7px; border-radius:50%; background:#ff3b5c; animation:blink 1.4s infinite}
 @keyframes blink{50%{opacity:.25}}
 
@@ -373,7 +375,6 @@ body.tt .ans .vc{display:block}
 @keyframes turn{0%,35%{transform:rotate(0)}60%,100%{transform:rotate(90deg)}}
 #rotate p{font-size:clamp(15px,3.4vmin,30px); font-weight:800; line-height:1.4}
 #rotate small{color:var(--dim); font-size:clamp(11px,2.2vmin,18px)}
-@media (orientation:portrait) and (max-width:900px){ #rotate{display:grid} }
 body.rotok #rotate{display:none !important}   /* „Продължи все пак“ */
 
 /* ============ КОНФЕТИ ============ */
@@ -389,6 +390,44 @@ body.rotok #rotate{display:none !important}   /* „Продължи все па
 @media (max-width:820px){
   #screen-start,#screen-end{grid-template-columns:1fr 1.15fr; gap:2vmin}
   .arena{grid-template-columns:1fr 1.1fr; gap:1.6vmin}
+}
+/* ============ ВЕРТИКАЛЕН ВИД — за TikTok Studio и телефон ============
+   Стриймът е 9:16, затова при висок и тесен прозорец всичко се подрежда
+   отгоре надолу и заема цялата височина, вместо да се свива в лента. */
+@media (orientation:portrait){
+  .screen{padding:2vmin 2.4vmin}
+
+  #screen-game{grid-template-rows:auto 1fr; gap:1.6vmin}
+
+  /* лентата отгоре остава на един ред и не пълзи под бутоните в ъгъла */
+  .hud{padding-right:13vmin; gap:1.2vmin; flex-wrap:nowrap; overflow:hidden}
+  .hud .catchip,.dots{display:none}
+  .hud .stat{padding:.4vmin 1.2vmin; border-left:0}
+  .hud .stat span{display:none}
+  .timerwrap{min-width:0; flex:1}
+  .livechip{flex:0 1 auto; min-width:0; overflow:hidden}
+  #liveTxt{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+  .arena{grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); gap:1.6vmin}
+  .qcard{padding:3vmin; gap:1.4vmin}
+  .qtext{font-size:clamp(20px,6.2vmin,74px); align-items:flex-start; padding-top:.5vmin}
+  .wm{font-size:20vmin}
+
+  /* отговорите стават списък — чете се като анкета, без празни полета */
+  .answers{grid-template-columns:1fr; grid-template-rows:none;
+           grid-auto-rows:min-content; align-content:space-evenly; gap:1.4vmin}
+  .ans{font-size:clamp(15px,4.2vmin,50px); padding:2.6vmin 2.4vmin; gap:2vmin}
+  .ans .lt{width:8vmin; height:8vmin; font-size:clamp(13px,3.6vmin,42px)}
+  .ans .vc{font-size:clamp(12px,3.4vmin,38px)}
+  .fact{font-size:clamp(12px,2.9vmin,32px)}
+
+  #screen-start,#screen-end{grid-template-columns:1fr; grid-template-rows:auto 1fr; gap:2vmin}
+  .brand{text-align:center; align-items:center; gap:1.2vmin}
+  .logo{font-size:clamp(30px,11vmin,120px)}
+  .tagline{display:none}
+  .setup{padding-top:2.4vmin}
+  .result{text-align:center; align-items:center}
+  .bigscore{font-size:clamp(44px,20vmin,220px)}
 }
 </style>
 </head>
@@ -822,8 +861,18 @@ function crowdChoice(){
 
 function paintLive(){
   const chip = $("#liveChip");
-  if(!TT.live){ chip.style.display = "none"; return; }
+
+  // през сървъра чипът се вижда винаги — иначе липсата на гласове
+  // изглежда като счупена игра, вместо като липсваща връзка
+  if(!location.protocol.startsWith("http")){ chip.style.display = "none"; return; }
   chip.style.display = "flex";
+
+  if(!TT.live){
+    chip.classList.add("off");
+    $("#liveTxt").textContent = TT.ws ? "НЯМА ВРЪЗКА С ЧАТА" : "СЪРВЪРЪТ НЕ ОТГОВАРЯ";
+    return;
+  }
+  chip.classList.remove("off");
   const total = TT.votes.reduce((a,b)=>a+b,0);
   $("#liveTxt").textContent = `@${TT.user} · 👁 ${TT.viewers} · 💬 ${TT.chats} · 🗳 ${total}`;
 }
