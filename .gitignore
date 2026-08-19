@@ -4,3 +4,4 @@ package-lock.json
 .needs-install
 .last-user
 .stream-setup.json
+/package.json
