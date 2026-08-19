@@ -677,6 +677,7 @@ function segs(id, key){
    ==================================================== */
 const TT = {
   ws:null, live:false, user:"", viewers:0,
+  server:false,              // вдигнат ли е нашият сървър (пуснато с START.bat)
   chats:0,                   // колко коментара изобщо са дошли
   votes:[0,0,0,0],          // гласове за А, Б, В, Г за текущия въпрос
   voters:new Map(),          // userId -> избран индекс (брои се само първият глас)
@@ -719,7 +720,12 @@ function ttOpen(then){
   catch(e){ ttSet("Сървърът не е пуснат. Затвори това и пусни START.bat.", "bad"); return; }
   TT.ws = ws;
 
-  ws.onopen = ()=>{ if(then) then(); };
+  ws.onopen = ()=>{
+    TT.server = true;
+    armAutostart();      // само нашият сървър може да отвори тази връзка
+    paintLive();
+    if(then) then();
+  };
 
   ws.onmessage = ev=>{
     let m; try{ m = JSON.parse(ev.data); }catch{ return; }
@@ -731,8 +737,8 @@ function ttOpen(then){
       TT.viewers = m.viewers || 0;
       document.body.classList.toggle("tt", TT.live);
       $("#ttBtn").textContent = TT.live ? "Прекъсни" : "Свържи";
+      if(m.user && !$("#ttUser").value.trim()) $("#ttUser").value = m.user;
       if(TT.live){
-        if(!$("#ttUser").value.trim()) $("#ttUser").value = TT.user;
         ttSet(`Свързан с @${TT.user} — зрителите могат да гласуват с 1–4.`, "ok");
       }
       paintLive();
@@ -745,7 +751,7 @@ function ttOpen(then){
   ws.onerror = ()=>{};   // причината се вижда в onclose, за да няма двойни съобщения
 
   ws.onclose = ()=>{
-    TT.ws = null; TT.live = false;
+    TT.ws = null; TT.live = false; TT.server = false;
     document.body.classList.remove("tt");
     $("#ttBtn").textContent = "Свържи";
     paintLive();
@@ -794,7 +800,7 @@ function armAutostart(){
   autoTimer2 = setInterval(()=>{
     left--;
     $("#autoSec").textContent = left;
-    if(left <= 0){ cancelAutostart(); streamMode = true; startGame(); }
+    if(left <= 0){ cancelAutostart(); startGame(); }
   }, 1000);
 }
 function cancelAutostart(){
@@ -864,7 +870,7 @@ function paintLive(){
 
   // през сървъра чипът се вижда винаги — иначе липсата на гласове
   // изглежда като счупена игра, вместо като липсваща връзка
-  if(!location.protocol.startsWith("http")){ chip.style.display = "none"; return; }
+  if(!TT.server && !TT.ws){ chip.style.display = "none"; return; }
   chip.style.display = "flex";
 
   if(!TT.live){
@@ -913,15 +919,13 @@ function setHue(cat){
 /* ==================== ИГРА ==================== */
 let timer=null;
 
-let streamMode = false;   // пуснато само или тече стрийм → нищо не чака клик
-
 function startGame(){
   cancelAutostart();
   // сървърът помни избора, за да тръгне така и в прозорчето на TikTok Studio
   try{ TT.ws && TT.ws.readyState === 1 &&
        TT.ws.send(JSON.stringify({type:"setup", count:cfg.count, time:cfg.time})); }catch(e){}
   const inf = cfg.count === 0;                 // безкраен режим — за цял стрийм
-  const hands = streamMode || TT.live || inf;  // върви само, без нито един клик
+  const hands = TT.server || TT.live || inf;   // върви само, без нито един клик
   // без ръце няма кой да отговори, затова "Без лимит" получава реално време
   const time = (hands && cfg.time === 0) ? 25 : cfg.time;
   const all = poolFor();
@@ -1237,7 +1241,7 @@ function rain(){
 }
 
 /* ==================== УПРАВЛЕНИЕ ==================== */
-$("#startBtn").onclick = ()=>{ sfx.click(); streamMode = TT.live; startGame(); };
+$("#startBtn").onclick = ()=>{ sfx.click(); startGame(); };
 $("#nextBtn").onclick = ()=>{ sfx.click(); next(); };
 $("#againBtn").onclick = ()=>{ sfx.click(); startGame(); };
 function toMenu(){
@@ -1248,7 +1252,7 @@ function toMenu(){
   $("#bestScore").textContent = getBest();
   setHue("Космос");
   show("#screen-start");
-  if(location.protocol.startsWith("http")){ autoArmed = false; armAutostart(); }
+  if(TT.server){ autoArmed = false; armAutostart(); }
 }
 $("#menuBtn").onclick = toMenu;
 
@@ -1336,12 +1340,9 @@ setHue("Космос");
 
   // при отваряне през сървъра се закачаме веднага, за да получим
   // запомнените настройки и да разберем дали има активен стрийм
-  if(location.protocol.startsWith("http")){
-    ttOpen();
-    // Прозорчето в TikTok Studio не приема кликове, затова играта тръгва
-    // сама. Не зависи от нищо запомнено — иначе първия път не потегля.
-    armAutostart();
-  }
+  // Само ако отсреща има сървър, значи е пуснато с START.bat за стрийм.
+  // Тогава ttOpen сам вдига отброяването. През github или файл — нищо.
+  if(location.protocol.startsWith("http")) ttOpen();
 
   const user = p.get("tiktok");
   if(user){ $("#ttUser").value = user.replace(/^@/, ""); ttConnect(); }

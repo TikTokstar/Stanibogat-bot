@@ -19,6 +19,10 @@ const { TikTokLiveConnection, WebcastEvent, ControlEvent } = require('tiktok-liv
 const { WebSocketServer } = require('ws');
 
 const PORT = Number(process.env.PORT || 8080);
+
+/* Твоят профил в TikTok. Свързва се към него сам, без да го въвеждаш.
+   Смениш ли акаунта, смени го тук — това е единственото място. */
+const DEFAULT_USER = "oneisthelonliestnumber69";
 const ROOT = path.join(__dirname, '..');          // папката с index.html
 
 /* ---------- 1. раздаване на файловете на играта ---------- */
@@ -69,7 +73,7 @@ function readSetup(){
 function writeSetup(patch){
   try{ fs.writeFileSync(SETUP_FILE, JSON.stringify({ ...readSetup(), ...patch })); }catch{}
 }
-const readUser = () => readSetup().user || "";
+const readUser = () => readSetup().user || DEFAULT_USER;
 const saveUser = u => writeSetup({ user: u });
 let retryTimer = null;    // чакане стриймът да тръгне
 const RETRY_SEC = 15;
@@ -93,7 +97,7 @@ function status(extra = {}){
   return {
     type:"status",
     connected: !!(conn && currentUser),
-    user: currentUser, viewers,
+    user: currentUser || wanted || readUser(), viewers,
     setup: { count: setup.count, time: setup.time },
     // има ли запомнено име, значи е за стрийм — тогава играта тръгва сама
     autostart: !!setup.user,
